@@ -1,0 +1,28 @@
+# =============================================================================
+# Data Engineering Parameters
+# =============================================================================
+data_engineering:
+  target_column: "OUTCOME"
+  zero_replacement_columns:
+    - "Glucose"
+    - "BloodPressure"
+    - "SkinThickness"
+    - "Insulin"
+    - "BMI"
+  outlier_q1: 0.05
+  outlier_q3: 0.95
+  test_size: 0.30
+  random_state: 17
+  split_to_fit:
+    - "train"
+
+# =============================================================================
+# Training Parameters
+# =============================================================================
+training:
+  target_column: "OUTCOME"
+  random_state: 46
+  model_params:
+    n_estimators: 200
+    max_depth: 10
+    min_samples_split: 5

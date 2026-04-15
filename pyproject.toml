@@ -1,0 +1,38 @@
+[project]
+name = "diabetes_prediction"
+version = "0.1.0"
+description = "Predicting diabetes incidence - Kedro project for PADS/Insper"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "kedro>=1.0",
+    "kedro-datasets[pandas]>=9.0",
+    "kedro-viz>=12.0",
+    "pandas>=2.0",
+    "scikit-learn>=1.5",
+    "numpy>=1.26",
+]
+
+[project.scripts]
+diabetes-prediction = "diabetes_prediction.__main__:main"
+
+[tool.kedro]
+package_name = "diabetes_prediction"
+project_name = "Diabetes Prediction"
+kedro_init_version = "1.3.1"
+tools = ""
+example_pipeline = "false"
+
+[tool.ruff]
+line-length = 120
+select = ["F", "I", "UP", "PL"]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.kedro_telemetry]
+project_id = "f61949d6a9c843c98d6c322be930dd59"

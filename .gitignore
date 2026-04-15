@@ -1,0 +1,32 @@
+## Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+## Virtual environments
+.venv/
+venv/
+
+## Kedro
+conf/local/**
+!conf/local/.gitkeep
+
+## Data (keep raw, ignore generated)
+data/02_intermediate/
+data/03_primary/
+data/04_feature/
+data/05_model_input/
+data/06_models/
+data/07_model_output/
+data/08_reporting/
+
+## IDE
+.vscode/
+.idea/
+
+## OS
+.DS_Store
+Thumbs.db

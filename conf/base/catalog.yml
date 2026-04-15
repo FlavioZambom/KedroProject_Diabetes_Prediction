@@ -1,0 +1,84 @@
+# =============================================================================
+# RAW DATA (01_raw)
+# =============================================================================
+raw_modelling_data:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/diabetes-dataset-modelling.csv
+
+raw_inference_data:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/diabetes-dataset-inference.csv
+
+# =============================================================================
+# INTERMEDIATE (02_intermediate)
+# =============================================================================
+cleaned_data:
+  type: pandas.CSVDataset
+  filepath: data/02_intermediate/cleaned_data.csv
+
+featured_data:
+  type: pandas.CSVDataset
+  filepath: data/02_intermediate/featured_data.csv
+
+split_data:
+  type: pandas.CSVDataset
+  filepath: data/03_primary/split_data.csv
+
+# =============================================================================
+# PRIMARY (03_primary) - Encoders & Scaler artifacts
+# =============================================================================
+encoders:
+  type: pickle.PickleDataset
+  filepath: data/03_primary/encoders.pkl
+
+scaler:
+  type: pickle.PickleDataset
+  filepath: data/03_primary/scaler.pkl
+
+encoded_data:
+  type: pandas.CSVDataset
+  filepath: data/04_feature/encoded_data.csv
+
+# =============================================================================
+# MODEL INPUT (05_model_input)
+# =============================================================================
+master_table:
+  type: pandas.CSVDataset
+  filepath: data/05_model_input/master_table.csv
+
+# =============================================================================
+# MODELS (06_models)
+# =============================================================================
+model_artifact:
+  type: pickle.PickleDataset
+  filepath: data/06_models/model_artifact.pkl
+
+# =============================================================================
+# MODEL OUTPUT (07_model_output)
+# =============================================================================
+metrics:
+  type: json.JSONDataset
+  filepath: data/08_reporting/metrics.json
+
+inference_predictions:
+  type: pandas.CSVDataset
+  filepath: data/07_model_output/inference_predictions.csv
+
+# =============================================================================
+# INFERENCE INTERMEDIATE (not persisted by default, but we declare them)
+# =============================================================================
+inference_cleaned:
+  type: pandas.CSVDataset
+  filepath: data/02_intermediate/inference_cleaned.csv
+
+inference_featured:
+  type: pandas.CSVDataset
+  filepath: data/02_intermediate/inference_featured.csv
+
+inference_encoded:
+  type: pandas.CSVDataset
+  filepath: data/04_feature/inference_encoded.csv
+
+inference_scaled:
+  type: pandas.CSVDataset
+  filepath: data/05_model_input/inference_scaled.csv
