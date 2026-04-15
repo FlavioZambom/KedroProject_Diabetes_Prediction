@@ -11,10 +11,13 @@ dependencies = [
     "pandas>=2.0",
     "scikit-learn>=1.5",
     "numpy>=1.26",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
 ]
 
 [project.scripts]
 diabetes-prediction = "diabetes_prediction.__main__:main"
+diabetes-prediction-api = "diabetes_prediction.api:run"
 
 [tool.kedro]
 package_name = "diabetes_prediction"

@@ -507,22 +507,26 @@ name = "diabetes-prediction"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "fastapi" },
     { name = "kedro" },
     { name = "kedro-datasets", extra = ["pandas"] },
     { name = "kedro-viz" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "scikit-learn" },
+    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "fastapi", specifier = ">=0.110" },
     { name = "kedro", specifier = ">=1.0" },
     { name = "kedro-datasets", extras = ["pandas"], specifier = ">=9.0" },
     { name = "kedro-viz", specifier = ">=12.0" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "pandas", specifier = ">=2.0" },
     { name = "scikit-learn", specifier = ">=1.5" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.29" },
 ]
 
 [[package]]
