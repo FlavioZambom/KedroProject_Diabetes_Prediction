@@ -19,6 +19,12 @@ data_engineering:
 # =============================================================================
 # Training Parameters
 # =============================================================================
+refit:
+  target_column: "OUTCOME"
+  train_splits:
+    - "train"
+    - "test"
+
 training:
   target_column: "OUTCOME"
   random_state: 46

@@ -1,7 +1,7 @@
 [
   {
     "event": "before_pipeline_run",
-    "timestamp": "2026-04-15T22:03:34.478569+00:00"
+    "timestamp": "2026-04-16T00:50:45.190146+00:00"
   },
   {
     "event": "after_dataset_loaded",
@@ -21,7 +21,7 @@
     "event": "after_node_run",
     "node": "clean_data",
     "node_id": "5f8921e6",
-    "duration": 0.020030041996506043,
+    "duration": 0.018708210001932457,
     "status": "success"
   },
   {
@@ -49,7 +49,7 @@
     "event": "after_node_run",
     "node": "engineer_features",
     "node_id": "5e5a98ca",
-    "duration": 0.008213492001232225,
+    "duration": 0.0072480720045859925,
     "status": "success"
   },
   {
@@ -77,7 +77,7 @@
     "event": "after_node_run",
     "node": "split_data",
     "node_id": "e7998aff",
-    "duration": 0.00373579600272933,
+    "duration": 0.0033818619995145127,
     "status": "success"
   },
   {
@@ -105,7 +105,7 @@
     "event": "after_node_run",
     "node": "fit_encoders",
     "node_id": "086c8a16",
-    "duration": 0.006660191997070797,
+    "duration": 0.006765861005987972,
     "status": "success"
   },
   {
@@ -133,7 +133,7 @@
     "event": "after_node_run",
     "node": "transform_encoders",
     "node_id": "47a3c397",
-    "duration": 0.00604326999746263,
+    "duration": 0.005579354001383763,
     "status": "success"
   },
   {
@@ -161,7 +161,7 @@
     "event": "after_node_run",
     "node": "fit_scaler",
     "node_id": "f861936e",
-    "duration": 0.007516464997024741,
+    "duration": 0.007159560002037324,
     "status": "success"
   },
   {
@@ -189,7 +189,7 @@
     "event": "after_node_run",
     "node": "transform_scaler",
     "node_id": "975d32eb",
-    "duration": 0.00518940400070278,
+    "duration": 0.004695547002484091,
     "status": "success"
   },
   {
@@ -217,7 +217,7 @@
     "event": "after_node_run",
     "node": "train_model",
     "node_id": "f632f626",
-    "duration": 0.2423816579976119,
+    "duration": 0.23614224499760894,
     "status": "success"
   },
   {
@@ -252,7 +252,7 @@
     "event": "after_node_run",
     "node": "evaluate_model",
     "node_id": "b1c0135b",
-    "duration": 0.028582179998920765,
+    "duration": 0.02785882600437617,
     "status": "success"
   },
   {
@@ -264,6 +264,6 @@
   },
   {
     "event": "after_pipeline_run",
-    "timestamp": "2026-04-15T22:03:35.731749+00:00"
+    "timestamp": "2026-04-16T00:50:45.818437+00:00"
   }
 ]

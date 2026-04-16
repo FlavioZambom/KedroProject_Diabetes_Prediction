@@ -31,6 +31,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 
 ARTIFACTS = {
     "model": DATA_DIR / "06_models" / "model_artifact.pkl",
+    "production_model": DATA_DIR / "06_models" / "production_model.pkl",
     "encoders": DATA_DIR / "03_primary" / "encoders.pkl",
     "scaler": DATA_DIR / "03_primary" / "scaler.pkl",
     "metrics": DATA_DIR / "08_reporting" / "metrics.json",
@@ -134,12 +135,14 @@ def _run_kedro_pipeline(pipeline_name: str) -> None:
 # ---------------------------------------------------------------------------
 # Helper: inference without Kedro session (uses preloaded artifacts)
 # ---------------------------------------------------------------------------
-def _infer(raw_input: DiabetesInput) -> dict[str, Any]:
-    if "model" not in state:
-        raise HTTPException(
-            status_code=503,
-            detail="Model artifact not loaded. Run the 'data_engineering' and 'training' pipelines first.",
+def _infer(raw_input: DiabetesInput, model_key: str = "model") -> dict[str, Any]:
+    if model_key not in state:
+        hint = (
+            "Run the 'data_engineering' + 'training' pipelines first."
+            if model_key == "model"
+            else "Run the 'refit' pipeline first."
         )
+        raise HTTPException(status_code=503, detail=f"Artifact '{model_key}' not loaded. {hint}")
     if "encoders" not in state or "scaler" not in state:
         raise HTTPException(
             status_code=503,
@@ -147,16 +150,11 @@ def _infer(raw_input: DiabetesInput) -> dict[str, Any]:
         )
 
     df = pd.DataFrame([raw_input.model_dump()])
-
     df_clean = clean_data(df, DATA_ENGINEERING_PARAMS)
-
     df_feat = engineer_features(df_clean, DATA_ENGINEERING_PARAMS)
-
     df_enc = transform_encoders(df_feat, state["encoders"])
-
     df_scaled = transform_scaler(df_enc, state["scaler"])
-
-    results = predict(df_scaled, state["model"])
+    results = predict(df_scaled, state[model_key])
 
     prediction = int(results["prediction"].iloc[0])
     probability = float(results["probability"].iloc[0])
@@ -196,6 +194,10 @@ def list_pipelines():
                 "description": "Run predictions on raw_inference_data using the saved model; writes inference_predictions.csv.",
             },
             {
+                "name": "refit",
+                "description": "Retrain the validated model on all data (train + test) for production use; saves production_model.",
+            },
+            {
                 "name": "__default__",
                 "description": "Run data_engineering + training end-to-end.",
             },
@@ -205,7 +207,7 @@ def list_pipelines():
 
 @app.post("/pipelines/{pipeline_name}/run", response_model=PipelineRunResponse, tags=["Pipelines"])
 def run_pipeline(pipeline_name: str):
-    valid = {"data_engineering", "training", "inference", "__default__"}
+    valid = {"data_engineering", "training", "inference", "refit", "__default__"}
     if pipeline_name not in valid:
         raise HTTPException(
             status_code=404,
@@ -233,8 +235,22 @@ def run_pipeline(pipeline_name: str):
 
 @app.post("/predict", response_model=DiabetesPrediction, tags=["Inference"])
 def predict_single(body: DiabetesInput):
-    result = _infer(body)
-    return result
+    """
+    Predict usando o modelo **validado** (treinado só no split train).
+
+    Use para avaliação e comparação com as métricas reportadas.
+    """
+    return _infer(body, model_key="model")
+
+
+@app.post("/predict/production", response_model=DiabetesPrediction, tags=["Inference"])
+def predict_production(body: DiabetesInput):
+    """
+    Predict usando o modelo de **produção** (refitted em train + test).
+
+    Requer que o pipeline `refit` tenha sido executado após `data_engineering` + `training`.
+    """
+    return _infer(body, model_key="production_model")
 
 
 @app.get("/metrics", tags=["Metrics"])

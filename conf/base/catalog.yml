@@ -53,6 +53,10 @@ model_artifact:
   type: pickle.PickleDataset
   filepath: data/06_models/model_artifact.pkl
 
+production_model:
+  type: pickle.PickleDataset
+  filepath: data/06_models/production_model.pkl
+
 # =============================================================================
 # MODEL OUTPUT (07_model_output)
 # =============================================================================
