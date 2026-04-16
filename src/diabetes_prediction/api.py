@@ -16,8 +16,8 @@ from kedro.framework.startup import bootstrap_project
 from pydantic import BaseModel, Field
 
 from diabetes_prediction.pipelines.data_engineering.nodes import (
-    clean_data,
     engineer_features,
+    transform_cleaner,
     transform_encoders,
     transform_scaler,
 )
@@ -31,19 +31,10 @@ DATA_DIR = PROJECT_ROOT / "data"
 ARTIFACTS: dict[str, Path] = {
     "model": DATA_DIR / "06_models" / "model_artifact.pkl",
     "production_model": DATA_DIR / "06_models" / "production_model.pkl",
+    "cleaner": DATA_DIR / "03_primary" / "cleaner.pkl",
     "encoders": DATA_DIR / "03_primary" / "encoders.pkl",
     "scaler": DATA_DIR / "03_primary" / "scaler.pkl",
     "metrics": DATA_DIR / "08_reporting" / "metrics.json",
-}
-
-DATA_ENGINEERING_PARAMS: dict[str, Any] = {
-    "target_column": "OUTCOME",
-    "zero_replacement_columns": ["Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI"],
-    "outlier_q1": 0.05,
-    "outlier_q3": 0.95,
-    "test_size": 0.30,
-    "random_state": 17,
-    "split_to_fit": ["train"],
 }
 
 state: dict[str, Any] = {}
@@ -74,10 +65,7 @@ def _reload_pickle_artifacts() -> None:
 async def lifespan(app: FastAPI):
     logger.info("api: startup — loading artifacts from disk")
     _reload_pickle_artifacts()
-    logger.info(
-        "api: startup complete  loaded=%s",
-        [k for k in state],
-    )
+    logger.info("api: startup complete  loaded=%s", [k for k in state])
     yield
     logger.info("api: shutdown — clearing state")
     state.clear()
@@ -224,31 +212,24 @@ def _infer(raw_input: DiabetesInput, model_key: str = "model") -> dict[str, Any]
         Dict with ``prediction``, ``probability``, and ``label``.
 
     Raises:
-        HTTPException 503: When the required artifact is not loaded.
+        HTTPException 503: When a required artifact is not loaded.
     """
-    if model_key not in state:
-        hint = (
-            "Run the 'data_engineering' + 'training' pipelines first."
-            if model_key == "model"
-            else "Run the 'refit' pipeline first."
-        )
-        logger.warning("api: artifact missing  key=%s", model_key)
+    required = [model_key, "cleaner", "encoders", "scaler"]
+    missing = [k for k in required if k not in state]
+    if missing:
         raise HTTPException(
             status_code=503,
-            detail=f"Artifact '{model_key}' not loaded. {hint}",
-        )
-    if "encoders" not in state or "scaler" not in state:
-        logger.warning("api: encoder/scaler not loaded")
-        raise HTTPException(
-            status_code=503,
-            detail="Encoder/scaler artifacts not loaded. Run the 'data_engineering' pipeline first.",
+            detail=(
+                f"Artifacts not loaded: {missing}. "
+                "Run the 'data_engineering' + 'training' pipelines first."
+            ),
         )
 
     logger.debug("api: inference started  model_key=%s  input=%s", model_key, raw_input.model_dump())
 
     df = pd.DataFrame([raw_input.model_dump()])
-    df_clean = clean_data(df, DATA_ENGINEERING_PARAMS)
-    df_feat = engineer_features(df_clean, DATA_ENGINEERING_PARAMS)
+    df_clean = transform_cleaner(df, state["cleaner"])
+    df_feat = engineer_features(df_clean, {})
     df_enc = transform_encoders(df_feat, state["encoders"])
     df_scaled = transform_scaler(df_enc, state["scaler"])
     results = predict(df_scaled, state[model_key])

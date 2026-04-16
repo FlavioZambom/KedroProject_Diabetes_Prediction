@@ -25,8 +25,12 @@ split_data:
   filepath: data/03_primary/split_data.csv
 
 # =============================================================================
-# PRIMARY (03_primary) - Encoders & Scaler artifacts
+# PRIMARY (03_primary) - Cleaner, Encoders & Scaler artifacts
 # =============================================================================
+cleaner:
+  type: pickle.PickleDataset
+  filepath: data/03_primary/cleaner.pkl
+
 encoders:
   type: pickle.PickleDataset
   filepath: data/03_primary/encoders.pkl

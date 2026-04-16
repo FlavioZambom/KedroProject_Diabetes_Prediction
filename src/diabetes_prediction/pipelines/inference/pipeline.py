@@ -3,8 +3,8 @@
 from kedro.pipeline import Pipeline, node, pipeline
 
 from diabetes_prediction.pipelines.data_engineering.nodes import (
-    clean_data,
     engineer_features,
+    transform_cleaner,
     transform_encoders,
     transform_scaler,
 )
@@ -16,10 +16,10 @@ def create_pipeline(**kwargs) -> Pipeline:
     return pipeline(
         [
             node(
-                func=clean_data,
-                inputs=["raw_inference_data", "params:data_engineering"],
+                func=transform_cleaner,
+                inputs=["raw_inference_data", "cleaner"],
                 outputs="inference_cleaned",
-                name="inference_clean_data",
+                name="inference_transform_cleaner",
             ),
             node(
                 func=engineer_features,
