@@ -7,7 +7,6 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -29,7 +28,7 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
 
-ARTIFACTS = {
+ARTIFACTS: dict[str, Path] = {
     "model": DATA_DIR / "06_models" / "model_artifact.pkl",
     "production_model": DATA_DIR / "06_models" / "production_model.pkl",
     "encoders": DATA_DIR / "03_primary" / "encoders.pkl",
@@ -37,7 +36,7 @@ ARTIFACTS = {
     "metrics": DATA_DIR / "08_reporting" / "metrics.json",
 }
 
-DATA_ENGINEERING_PARAMS = {
+DATA_ENGINEERING_PARAMS: dict[str, Any] = {
     "target_column": "OUTCOME",
     "zero_replacement_columns": ["Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI"],
     "outlier_q1": 0.05,
@@ -50,26 +49,44 @@ DATA_ENGINEERING_PARAMS = {
 state: dict[str, Any] = {}
 
 
+# ---------------------------------------------------------------------------
+# Startup / shutdown
+# ---------------------------------------------------------------------------
+
 def _load_pickle(path: Path) -> Any:
     with open(path, "rb") as f:
         return pickle.load(f)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+def _reload_pickle_artifacts() -> None:
+    """(Re)load every pickle artifact that exists on disk into *state*."""
     for key, path in ARTIFACTS.items():
         if key == "metrics":
             continue
         if path.exists():
             state[key] = _load_pickle(path)
-            logger.info("Loaded artifact: %s", path.name)
+            logger.info("api: artifact loaded  key=%s  path=%s", key, path.name)
         else:
-            logger.warning("Artifact not found (run pipelines first): %s", path)
+            logger.warning("api: artifact not found (run pipelines first)  path=%s", path)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("api: startup — loading artifacts from disk")
+    _reload_pickle_artifacts()
+    logger.info(
+        "api: startup complete  loaded=%s",
+        [k for k in state],
+    )
     yield
+    logger.info("api: shutdown — clearing state")
     state.clear()
 
 
 # ---------------------------------------------------------------------------
+# App
+# ---------------------------------------------------------------------------
+
 app = FastAPI(
     title="Diabetes Prediction API",
     description=(
@@ -80,8 +97,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Schemas
+# ---------------------------------------------------------------------------
 
 class DiabetesInput(BaseModel):
     Pregnancies: float = Field(..., ge=0, description="Number of pregnancies")
@@ -117,37 +136,115 @@ class DiabetesPrediction(BaseModel):
     label: str = Field(..., description="Human-readable result")
 
 
+class TuningOptions(BaseModel):
+    """Hyperparameter tuning overrides for the training pipeline run."""
+    enabled: bool = Field(
+        default=False,
+        description="Enable hyperparameter search (GridSearchCV / RandomizedSearchCV).",
+    )
+    method: str = Field(
+        default="random",
+        pattern="^(random|grid)$",
+        description="Search strategy: ``random`` (RandomizedSearchCV) or ``grid`` (GridSearchCV).",
+    )
+    scoring: str = Field(
+        default="f1",
+        description="Sklearn scoring metric used to rank candidates (e.g. ``f1``, ``roc_auc``).",
+    )
+    n_iter: int = Field(
+        default=20,
+        ge=1,
+        description="Number of candidates sampled in random search (ignored for grid search).",
+    )
+    cv: int = Field(default=5, ge=2, description="Number of cross-validation folds.")
+
+
+class PipelineRunRequest(BaseModel):
+    """Optional body for POST /pipelines/{pipeline_name}/run."""
+    tuning: TuningOptions | None = Field(
+        default=None,
+        description=(
+            "Hyperparameter tuning options. "
+            "Only applied when ``pipeline_name`` is ``training`` or ``__default__``."
+        ),
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "tuning": {
+                        "enabled": True,
+                        "method": "random",
+                        "scoring": "f1",
+                        "n_iter": 30,
+                        "cv": 5,
+                    }
+                }
+            ]
+        }
+    }
+
+
 class PipelineRunResponse(BaseModel):
     pipeline_name: str
     status: str
     message: str
+    tuning_applied: bool = Field(
+        default=False,
+        description="Whether hyperparameter tuning was applied in this run.",
+    )
 
 
 # ---------------------------------------------------------------------------
-# Helper: run a Kedro pipeline via KedroSession
+# Helpers
 # ---------------------------------------------------------------------------
-def _run_kedro_pipeline(pipeline_name: str) -> None:
+
+def _run_kedro_pipeline(pipeline_name: str, extra_params: dict[str, Any] | None = None) -> None:
+    """Bootstrap Kedro and run *pipeline_name*, optionally overriding parameters."""
+    logger.info(
+        "kedro: running pipeline  name=%s  extra_params=%s",
+        pipeline_name,
+        extra_params,
+    )
     bootstrap_project(PROJECT_ROOT)
-    with KedroSession.create(project_path=PROJECT_ROOT) as session:
-        session.run(pipeline_name=pipeline_name)
+    with KedroSession.create(project_path=PROJECT_ROOT, runtime_params=extra_params or {}) as session:
+        session.run(pipeline_names=[pipeline_name])
+    logger.info("kedro: pipeline finished  name=%s", pipeline_name)
 
 
-# ---------------------------------------------------------------------------
-# Helper: inference without Kedro session (uses preloaded artifacts)
-# ---------------------------------------------------------------------------
 def _infer(raw_input: DiabetesInput, model_key: str = "model") -> dict[str, Any]:
+    """Run the full inference chain using preloaded artifacts.
+
+    Args:
+        raw_input: Validated patient data from the request body.
+        model_key: Key in *state* to use (``"model"`` or ``"production_model"``).
+
+    Returns:
+        Dict with ``prediction``, ``probability``, and ``label``.
+
+    Raises:
+        HTTPException 503: When the required artifact is not loaded.
+    """
     if model_key not in state:
         hint = (
             "Run the 'data_engineering' + 'training' pipelines first."
             if model_key == "model"
             else "Run the 'refit' pipeline first."
         )
-        raise HTTPException(status_code=503, detail=f"Artifact '{model_key}' not loaded. {hint}")
+        logger.warning("api: artifact missing  key=%s", model_key)
+        raise HTTPException(
+            status_code=503,
+            detail=f"Artifact '{model_key}' not loaded. {hint}",
+        )
     if "encoders" not in state or "scaler" not in state:
+        logger.warning("api: encoder/scaler not loaded")
         raise HTTPException(
             status_code=503,
             detail="Encoder/scaler artifacts not loaded. Run the 'data_engineering' pipeline first.",
         )
+
+    logger.debug("api: inference started  model_key=%s  input=%s", model_key, raw_input.model_dump())
 
     df = pd.DataFrame([raw_input.model_dump()])
     df_clean = clean_data(df, DATA_ENGINEERING_PARAMS)
@@ -158,27 +255,37 @@ def _infer(raw_input: DiabetesInput, model_key: str = "model") -> dict[str, Any]
 
     prediction = int(results["prediction"].iloc[0])
     probability = float(results["probability"].iloc[0])
+    label = "Diabetes" if prediction == 1 else "No Diabetes"
+
+    logger.info(
+        "api: inference complete  model_key=%s  prediction=%d  probability=%.4f  label=%s",
+        model_key, prediction, probability, label,
+    )
     return {
         "prediction": prediction,
         "probability": round(probability, 4),
-        "label": "Diabetes" if prediction == 1 else "No Diabetes",
+        "label": label,
     }
 
 
 # ---------------------------------------------------------------------------
-
+# Routes
+# ---------------------------------------------------------------------------
 
 @app.get("/health", tags=["Health"])
-def health():
+def health() -> dict[str, Any]:
+    loaded = [k for k in state]
+    missing = [k for k, p in ARTIFACTS.items() if k != "metrics" and k not in state]
+    logger.debug("api: health check  loaded=%s  missing=%s", loaded, missing)
     return {
         "status": "ok",
         "artifacts_loaded": {k: True for k in state if k != "metrics"},
-        "artifacts_missing": [k for k, p in ARTIFACTS.items() if k != "metrics" and k not in state],
+        "artifacts_missing": missing,
     }
 
 
 @app.get("/pipelines", tags=["Pipelines"])
-def list_pipelines():
+def list_pipelines() -> dict[str, Any]:
     return {
         "pipelines": [
             {
@@ -187,7 +294,11 @@ def list_pipelines():
             },
             {
                 "name": "training",
-                "description": "Train all configured models (RandomForest, LogisticRegression, CatBoost), evaluate each on the test split, select the best by selection_metric; saves model_artifact and metrics.",
+                "description": (
+                    "Train all configured models (RandomForest, LogisticRegression, CatBoost), "
+                    "evaluate each on the test split, select the best by selection_metric. "
+                    "Supports optional hyperparameter tuning via the request body."
+                ),
             },
             {
                 "name": "inference",
@@ -205,8 +316,19 @@ def list_pipelines():
     }
 
 
-@app.post("/pipelines/{pipeline_name}/run", response_model=PipelineRunResponse, tags=["Pipelines"])
-def run_pipeline(pipeline_name: str):
+@app.post(
+    "/pipelines/{pipeline_name}/run",
+    response_model=PipelineRunResponse,
+    tags=["Pipelines"],
+)
+def run_pipeline(pipeline_name: str, body: PipelineRunRequest = PipelineRunRequest()) -> PipelineRunResponse:
+    """Run a Kedro pipeline by name.
+
+    Pass a ``tuning`` object in the request body to override hyperparameter
+    search settings for the ``training`` or ``__default__`` pipelines.
+    The options map directly to ``params:training.tuning.*`` and take
+    precedence over the values in ``parameters.yml``.
+    """
     valid = {"data_engineering", "training", "inference", "refit", "__default__"}
     if pipeline_name not in valid:
         raise HTTPException(
@@ -214,29 +336,53 @@ def run_pipeline(pipeline_name: str):
             detail=f"Pipeline '{pipeline_name}' not found. Valid options: {sorted(valid)}",
         )
 
+    extra_params: dict[str, Any] | None = None
+    tuning_applied = False
+    tuning_pipelines = {"training", "__default__"}
+
+    if body.tuning is not None and pipeline_name in tuning_pipelines:
+        extra_params = {
+            "training.tuning.enabled": body.tuning.enabled,
+            "training.tuning.method": body.tuning.method,
+            "training.tuning.scoring": body.tuning.scoring,
+            "training.tuning.n_iter": body.tuning.n_iter,
+            "training.tuning.cv": body.tuning.cv,
+        }
+        tuning_applied = body.tuning.enabled
+        logger.info(
+            "api: tuning override applied  enabled=%s  method=%s  scoring=%s  n_iter=%d  cv=%d",
+            body.tuning.enabled,
+            body.tuning.method,
+            body.tuning.scoring,
+            body.tuning.n_iter,
+            body.tuning.cv,
+        )
+    elif body.tuning is not None:
+        logger.warning(
+            "api: tuning options ignored — pipeline '%s' does not support tuning",
+            pipeline_name,
+        )
+
     try:
-        _run_kedro_pipeline(pipeline_name)
+        _run_kedro_pipeline(pipeline_name, extra_params=extra_params)
     except Exception as exc:
-        logger.exception("Pipeline '%s' failed", pipeline_name)
+        logger.exception("api: pipeline failed  name=%s", pipeline_name)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    for key, path in ARTIFACTS.items():
-        if key == "metrics":
-            continue
-        if path.exists():
-            state[key] = _load_pickle(path)
+    logger.info("api: reloading artifacts after pipeline run  name=%s", pipeline_name)
+    _reload_pickle_artifacts()
 
     return PipelineRunResponse(
         pipeline_name=pipeline_name,
         status="success",
         message=f"Pipeline '{pipeline_name}' completed successfully.",
+        tuning_applied=tuning_applied,
     )
 
 
 @app.post("/predict", response_model=DiabetesPrediction, tags=["Inference"])
-def predict_single(body: DiabetesInput):
-    """
-    Predict usando o modelo **validado** (treinado só no split train).
+def predict_single(body: DiabetesInput) -> dict[str, Any]:
+    """Predict usando o modelo **validado** (treinado só no split train).
 
     Use para avaliação e comparação com as métricas reportadas.
     """
@@ -244,30 +390,33 @@ def predict_single(body: DiabetesInput):
 
 
 @app.post("/predict/production", response_model=DiabetesPrediction, tags=["Inference"])
-def predict_production(body: DiabetesInput):
-    """
-    Predict usando o modelo de **produção** (refitted em train + test).
+def predict_production(body: DiabetesInput) -> dict[str, Any]:
+    """Predict usando o modelo de **produção** (refitted em train + test).
 
-    Requer que o pipeline `refit` tenha sido executado após `data_engineering` + `training`.
+    Requer que o pipeline ``refit`` tenha sido executado após ``data_engineering`` + ``training``.
     """
     return _infer(body, model_key="production_model")
 
 
 @app.get("/metrics", tags=["Metrics"])
-def get_metrics():
+def get_metrics() -> JSONResponse:
+    """Return the last training metrics for all models."""
     metrics_path = ARTIFACTS["metrics"]
     if not metrics_path.exists():
+        logger.warning("api: metrics file not found  path=%s", metrics_path)
         raise HTTPException(
             status_code=404,
             detail="Metrics file not found. Run the 'training' pipeline first.",
         )
     with open(metrics_path) as f:
         metrics = json.load(f)
+    logger.debug("api: metrics served  models=%s", list(metrics))
     return JSONResponse(content=metrics)
 
 
 # ---------------------------------------------------------------------------
-def run():
+
+def run() -> None:
     uvicorn.run(
         "diabetes_prediction.api:app",
         host="0.0.0.0",

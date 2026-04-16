@@ -119,10 +119,17 @@ def fit_encoders(df: pd.DataFrame, params: dict[str, Any]) -> dict[str, Any]:
     split_to_fit = params.get("split_to_fit", ["train"])
     df_fit = df.loc[df["split"].isin(split_to_fit)].copy()
 
+    # Columns explicitly declared as multi-class in params take priority over
+    # the nunique() heuristic.  This is necessary for columns like NEW_GLUCOSE
+    # whose "Diabetes" bin (Glucose > 200) is never populated in this dataset
+    # (max Glucose = 199), causing nunique() == 2 and a wrong LabelEncoder fit
+    # that would raise ValueError if production data ever exceeds that limit.
+    forced_multi: set[str] = set(params.get("multi_class_columns", []))
+
     # Identify categorical columns
     cat_cols = [c for c in df_fit.select_dtypes(include=["object", "category"]).columns if c not in [target, "split"]]
-    binary_cols = [c for c in cat_cols if df_fit[c].nunique() <= 2]  # noqa: PLR2004
-    multi_cols = [c for c in cat_cols if c not in binary_cols]
+    multi_cols = [c for c in cat_cols if c in forced_multi or df_fit[c].nunique() > 2]  # noqa: PLR2004
+    binary_cols = [c for c in cat_cols if c not in multi_cols]
 
     # Fit LabelEncoders for binary cols
     label_encoders = {}

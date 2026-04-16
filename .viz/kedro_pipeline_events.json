@@ -1,14 +1,14 @@
 [
   {
     "event": "before_pipeline_run",
-    "timestamp": "2026-04-16T01:22:59.537017+00:00"
+    "timestamp": "2026-04-16T02:14:05.867545+00:00"
   },
   {
     "event": "after_dataset_loaded",
     "dataset": "master_table",
     "node_id": "d7b83b05",
     "status": "Available",
-    "size": 122977
+    "size": 125775
   },
   {
     "event": "after_dataset_loaded",
@@ -21,7 +21,7 @@
     "event": "after_node_run",
     "node": "train_all_models",
     "node_id": "5dddfbb8",
-    "duration": 3.31802714800142,
+    "duration": 91.09383573000014,
     "status": "success"
   },
   {
@@ -36,7 +36,7 @@
     "dataset": "master_table",
     "node_id": "d7b83b05",
     "status": "Available",
-    "size": 122977
+    "size": 125775
   },
   {
     "event": "after_dataset_loaded",
@@ -56,7 +56,7 @@
     "event": "after_node_run",
     "node": "evaluate_all_models",
     "node_id": "071a293c",
-    "duration": 0.11639744500098459,
+    "duration": 0.10539272999994864,
     "status": "success"
   },
   {
@@ -64,7 +64,7 @@
     "dataset": "metrics",
     "node_id": "966b9734",
     "status": "Available",
-    "size": 412
+    "size": 411
   },
   {
     "event": "after_dataset_loaded",
@@ -78,7 +78,7 @@
     "dataset": "metrics",
     "node_id": "966b9734",
     "status": "Available",
-    "size": 412
+    "size": 411
   },
   {
     "event": "after_dataset_loaded",
@@ -91,7 +91,7 @@
     "event": "after_node_run",
     "node": "select_best_model",
     "node_id": "0b8685c1",
-    "duration": 0.004362543999377522,
+    "duration": 0.005499655999301467,
     "status": "success"
   },
   {
@@ -99,10 +99,10 @@
     "dataset": "model_artifact",
     "node_id": "65f243e8",
     "status": "Available",
-    "size": 1656836
+    "size": 2413111
   },
   {
     "event": "after_pipeline_run",
-    "timestamp": "2026-04-16T01:23:03.530710+00:00"
+    "timestamp": "2026-04-16T02:15:37.546570+00:00"
   }
 ]
