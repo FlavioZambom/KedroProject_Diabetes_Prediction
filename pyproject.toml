@@ -10,6 +10,7 @@ dependencies = [
     "kedro-viz>=12.0",
     "pandas>=2.0",
     "scikit-learn>=1.5",
+    "catboost>=1.2",
     "numpy>=1.26",
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",

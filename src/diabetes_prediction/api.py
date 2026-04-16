@@ -91,7 +91,7 @@ class DiabetesInput(BaseModel):
     Insulin: float = Field(..., ge=0, description="2-Hour serum insulin (µU/mL)")
     BMI: float = Field(..., ge=0, description="Body mass index (kg/m²)")
     DiabetesPedigreeFunction: float = Field(..., ge=0, description="Diabetes pedigree function")
-    Age: float = Field(..., ge=21, description="Age in years")
+    Age: float = Field(..., gt=0, description="Age in years")
 
     model_config = {
         "json_schema_extra": {
@@ -187,7 +187,7 @@ def list_pipelines():
             },
             {
                 "name": "training",
-                "description": "Train a RandomForestClassifier and evaluate it; saves model_artifact and metrics.",
+                "description": "Train all configured models (RandomForest, LogisticRegression, CatBoost), evaluate each on the test split, select the best by selection_metric; saves model_artifact and metrics.",
             },
             {
                 "name": "inference",

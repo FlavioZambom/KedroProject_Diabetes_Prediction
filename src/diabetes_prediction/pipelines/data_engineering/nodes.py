@@ -51,28 +51,32 @@ def clean_data(raw_data: pd.DataFrame, params: dict[str, Any]) -> pd.DataFrame:
 def engineer_features(df_in: pd.DataFrame, params: dict[str, Any]) -> pd.DataFrame:
     """Create new features matching the original notebook."""
     df = df_in.copy()
+    YOUNG = 21
+    OLD = 50
+    LOWINSULIN = 16
+    HIGHINSULIN = 166
 
     # Age category
-    df.loc[(df["Age"] >= 21) & (df["Age"] < 50), "NEW_AGE_CAT"] = "mature"
-    df.loc[(df["Age"] >= 50), "NEW_AGE_CAT"] = "senior"
+    df.loc[(df["Age"] >= YOUNG) & (df["Age"] < OLD), "NEW_AGE_CAT"] = "mature"
+    df.loc[(df["Age"] >= OLD), "NEW_AGE_CAT"] = "senior"
     df["NEW_AGE_CAT"] = df["NEW_AGE_CAT"].fillna("mature")
 
     # BMI category
     df["NEW_BMI"] = pd.cut(
-        df["BMI"], bins=[0, 18.5, 24.9, 29.9, 100],
+        df["BMI"],
+        bins=[0, 18.5, 24.9, 29.9, 100],
         labels=["Underweight", "Healthy", "Overweight", "Obese"],
     )
 
     # Glucose category
     df["NEW_GLUCOSE"] = pd.cut(
-        df["Glucose"], bins=[0, 140, 200, 300],
+        df["Glucose"],
+        bins=[0, 140, 200, 300],
         labels=["Normal", "Prediabetes", "Diabetes"],
     )
 
     # Insulin score
-    df["NEW_INSULIN_SCORE"] = df["Insulin"].apply(
-        lambda x: "Normal" if 16 <= x <= 166 else "Abnormal"
-    )
+    df["NEW_INSULIN_SCORE"] = df["Insulin"].apply(lambda x: "Normal" if LOWINSULIN <= x <= HIGHINSULIN else "Abnormal")
 
     # Interaction features (numeric)
     df["NEW_GLUCOSE_INSULIN"] = df["Glucose"] * df["Insulin"]
@@ -108,9 +112,7 @@ def split_data(df_in: pd.DataFrame, params: dict[str, Any]) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # 4. fit_encoders  (fit on train only)
 # ---------------------------------------------------------------------------
-def fit_encoders(
-    df: pd.DataFrame, params: dict[str, Any]
-) -> dict[str, Any]:
+def fit_encoders(df: pd.DataFrame, params: dict[str, Any]) -> dict[str, Any]:
     """Fit LabelEncoders (binary cols) and OneHotEncoder (multi-class
     categorical cols) on the training split only."""
     target = params["target_column"]
@@ -118,11 +120,8 @@ def fit_encoders(
     df_fit = df.loc[df["split"].isin(split_to_fit)].copy()
 
     # Identify categorical columns
-    cat_cols = [
-        c for c in df_fit.select_dtypes(include=["object", "category"]).columns
-        if c not in [target, "split"]
-    ]
-    binary_cols = [c for c in cat_cols if df_fit[c].nunique() <= 2]
+    cat_cols = [c for c in df_fit.select_dtypes(include=["object", "category"]).columns if c not in [target, "split"]]
+    binary_cols = [c for c in cat_cols if df_fit[c].nunique() <= 2]  # noqa: PLR2004
     multi_cols = [c for c in cat_cols if c not in binary_cols]
 
     # Fit LabelEncoders for binary cols
@@ -147,7 +146,8 @@ def fit_encoders(
     }
     logger.info(
         "fit_encoders: binary=%s  multi=%s",
-        binary_cols, multi_cols,
+        binary_cols,
+        multi_cols,
     )
     return encoders
 
@@ -155,9 +155,7 @@ def fit_encoders(
 # ---------------------------------------------------------------------------
 # 5. transform_encoders
 # ---------------------------------------------------------------------------
-def transform_encoders(
-    df_in: pd.DataFrame, encoders: dict[str, Any]
-) -> pd.DataFrame:
+def transform_encoders(df_in: pd.DataFrame, encoders: dict[str, Any]) -> pd.DataFrame:
     """Apply fitted encoders to all splits."""
     df = df_in.copy()
 
@@ -183,18 +181,13 @@ def transform_encoders(
 # ---------------------------------------------------------------------------
 # 6. fit_scaler  (fit on train only)
 # ---------------------------------------------------------------------------
-def fit_scaler(
-    df: pd.DataFrame, params: dict[str, Any]
-) -> dict[str, Any]:
+def fit_scaler(df: pd.DataFrame, params: dict[str, Any]) -> dict[str, Any]:
     """Fit RobustScaler on numeric columns of the training split."""
     target = params["target_column"]
     split_to_fit = params.get("split_to_fit", ["train"])
     df_fit = df.loc[df["split"].isin(split_to_fit)].copy()
 
-    num_cols = [
-        c for c in df_fit.select_dtypes(include=[np.number]).columns
-        if c not in [target]
-    ]
+    num_cols = [c for c in df_fit.select_dtypes(include=[np.number]).columns if c not in [target]]
 
     scaler = RobustScaler()
     scaler.fit(df_fit[num_cols])
@@ -210,9 +203,7 @@ def fit_scaler(
 # ---------------------------------------------------------------------------
 # 7. transform_scaler  → master_table
 # ---------------------------------------------------------------------------
-def transform_scaler(
-    df_in: pd.DataFrame, scaler_artifact: dict[str, Any]
-) -> pd.DataFrame:
+def transform_scaler(df_in: pd.DataFrame, scaler_artifact: dict[str, Any]) -> pd.DataFrame:
     """Apply fitted scaler to all splits."""
     df = df_in.copy()
     scaler = scaler_artifact["scaler"]

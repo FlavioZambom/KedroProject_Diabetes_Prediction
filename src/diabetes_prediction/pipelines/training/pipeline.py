@@ -2,23 +2,29 @@
 
 from kedro.pipeline import Pipeline, node, pipeline
 
-from .nodes import evaluate_model, train_model
+from .nodes import evaluate_all_models, select_best_model, train_all_models
 
 
 def create_pipeline(**kwargs) -> Pipeline:
     return pipeline(
         [
             node(
-                func=train_model,
+                func=train_all_models,
                 inputs=["master_table", "params:training"],
-                outputs="model_artifact",
-                name="train_model",
+                outputs="all_model_artifacts",
+                name="train_all_models",
             ),
             node(
-                func=evaluate_model,
-                inputs=["master_table", "model_artifact", "params:training"],
+                func=evaluate_all_models,
+                inputs=["master_table", "all_model_artifacts", "params:training"],
                 outputs="metrics",
-                name="evaluate_model",
+                name="evaluate_all_models",
+            ),
+            node(
+                func=select_best_model,
+                inputs=["all_model_artifacts", "metrics", "params:training"],
+                outputs="model_artifact",
+                name="select_best_model",
             ),
         ]
     )

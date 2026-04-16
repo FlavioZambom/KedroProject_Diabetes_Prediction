@@ -13,23 +13,6 @@ def refit_model(
     model_artifact: dict[str, Any],
     params: dict[str, Any],
 ) -> dict[str, Any]:
-    """Retrain the validated model on all data splits for production use.
-
-    Extracts the estimator class and hyperparameters from ``model_artifact``,
-    then fits a fresh instance on the splits defined in ``params["train_splits"]``
-    (typically train + test).
-
-    Args:
-        master_table: Fully-processed DataFrame with a ``split`` column.
-        model_artifact: Artifact produced by ``train_model``, containing
-            ``model`` (fitted estimator) and ``feature_names``.
-        params: Refit configuration with keys:
-            - ``target_column`` (str): Name of the target column.
-            - ``train_splits`` (list[str]): Split labels to train on.
-
-    Returns:
-        Production model artifact with the same structure as ``model_artifact``.
-    """
     source_model = model_artifact["model"]
     feature_names = model_artifact["feature_names"]
     target = params["target_column"]

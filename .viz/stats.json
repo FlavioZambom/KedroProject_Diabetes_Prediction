@@ -1,1 +1,1 @@
-{"raw_modelling_data": {"rows": 652, "columns": 9, "file_size": 19808}, "cleaned_data": {"rows": 652, "columns": 9, "file_size": 25889}, "featured_data": {"rows": 652, "columns": 15, "file_size": 54458}, "split_data": {"rows": 652, "columns": 16, "file_size": 58183}, "encoded_data": {"rows": 652, "columns": 19, "file_size": 52976}, "master_table": {"rows": 652, "columns": 19, "file_size": 122977}}
+{"master_table": {"rows": 652, "columns": 19, "file_size": 122977}}
